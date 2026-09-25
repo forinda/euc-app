@@ -5,7 +5,9 @@ import { SESSION_EVENTS, type ListenerRole, type SessionEvents } from './session
 import type { CreateSessionDTO } from './dtos/create-session.dto'
 import type { CreateQuestionDTO } from './dtos/create-question.dto'
 import type { VoteDTO } from './dtos/vote.dto'
-import type { Question, QuestionSnapshot, Session, SessionSnapshot } from './session.types'
+import type { Draft, Question, QuestionSnapshot, Session, SessionSnapshot } from './session.types'
+
+const MAX_DRAFTS = 100
 
 @Service()
 export class SessionService {
@@ -51,6 +53,33 @@ export class SessionService {
     session.activeQuestionId = question.id
     this.changed(session)
     return toQuestionSnapshot(question)
+  }
+
+  listDrafts(session: Session): Draft[] {
+    return [...session.drafts.values()]
+  }
+
+  addDraft(session: Session, dto: CreateQuestionDTO): Draft {
+    if (session.drafts.size >= MAX_DRAFTS) {
+      throw HttpException.conflict(`A session can hold at most ${MAX_DRAFTS} prepared questions`)
+    }
+    const draft: Draft = { id: randomUUID(), text: dto.text, createdAt: new Date().toISOString() }
+    session.drafts.set(draft.id, draft)
+    this.repo.touch(session)
+    return draft
+  }
+
+  deleteDraft(session: Session, draftId: string) {
+    if (!session.drafts.delete(draftId)) throw HttpException.notFound('Prepared question not found')
+    this.repo.touch(session)
+  }
+
+  /** Publishes a prepared question and removes it from the list. */
+  publishDraft(session: Session, draftId: string): QuestionSnapshot {
+    const draft = session.drafts.get(draftId)
+    if (!draft) throw HttpException.notFound('Prepared question not found')
+    session.drafts.delete(draftId)
+    return this.publishQuestion(session, { text: draft.text })
   }
 
   closeQuestion(session: Session, questionId: string): QuestionSnapshot {

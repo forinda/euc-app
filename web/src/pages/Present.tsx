@@ -1,9 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
 import { api } from '../api'
 import { Results } from '../Results'
 import { PRESENTER_KEY_HEADER, chunkCode, describeError, joinUrl, presenterKey } from '../session'
 import { useSessionStream } from '../useSessionStream'
+
+type Draft = KickClientApi.Api['GET /sessions/:code/drafts']['response'][number]
 
 export function Present({ code }: { code: string }) {
   const key = presenterKey.get(code)
@@ -13,7 +15,21 @@ export function Present({ code }: { code: string }) {
   const [error, setError] = useState<string | null>(null)
   const [qr, setQr] = useState<string | null>(null)
   const [projector, setProjector] = useState(false)
+  const [drafts, setDrafts] = useState<Draft[]>([])
   const url = joinUrl(code)
+
+  // Prepared questions are presenter-only, so they come over plain requests
+  // rather than the public stream; reload after every change to the list.
+  const loadDrafts = useCallback(() => {
+    if (!key) return Promise.resolve()
+    return api
+      .get('/sessions/:code/drafts', { params: { code }, headers: { [PRESENTER_KEY_HEADER]: key } })
+      .then(setDrafts, (err) => setError(describeError(err)))
+  }, [code, key])
+
+  useEffect(() => {
+    loadDrafts()
+  }, [loadDrafts])
 
   useEffect(() => {
     QRCode.toDataURL(url, { margin: 1, width: 360 }).then(setQr, () => setQr(null))
@@ -66,6 +82,20 @@ export function Present({ code }: { code: string }) {
     const ok = await run(() => api.post('/sessions/:code/questions', { params: { code }, headers, body: { text } }))
     if (ok) setText('')
   }
+
+  async function saveForLater() {
+    const ok = await run(() => api.post('/sessions/:code/drafts', { params: { code }, headers, body: { text } }))
+    if (ok) setText('')
+    await loadDrafts()
+  }
+
+  const publishDraft = (draft: Draft) =>
+    run(() => api.post('/sessions/:code/drafts/:id/publish', { params: { code, id: draft.id }, headers })).then(
+      loadDrafts,
+    )
+
+  const deleteDraft = (draft: Draft) =>
+    run(() => api.delete('/sessions/:code/drafts/:id', { params: { code, id: draft.id }, headers })).then(loadDrafts)
 
   const closeVoting = () =>
     question &&
@@ -129,9 +159,36 @@ export function Present({ code }: { code: string }) {
             maxLength={280}
           />
           <button type="submit" className="btn btn--primary" disabled={busy || !text.trim()}>
-            Publish
+            Publish now
+          </button>
+          <button type="button" className="btn" onClick={saveForLater} disabled={busy || !text.trim()}>
+            Save for later
           </button>
         </form>
+
+        {drafts.length > 0 && (
+          <div className="drafts">
+            <h2 className="drafts__title">Up next ({drafts.length})</h2>
+            <ol className="drafts__list">
+              {drafts.map((draft) => (
+                <li key={draft.id} className="draft">
+                  <span className="draft__text">{draft.text}</span>
+                  <button className="btn btn--primary btn--sm" onClick={() => publishDraft(draft)} disabled={busy}>
+                    Publish
+                  </button>
+                  <button
+                    className="btn btn--sm btn--ghost"
+                    onClick={() => deleteDraft(draft)}
+                    disabled={busy}
+                    aria-label={`Remove "${draft.text}"`}
+                  >
+                    ✕
+                  </button>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
         <div className="row">
           <button className="btn" onClick={closeVoting} disabled={busy || question?.status !== 'open'}>
             Close voting

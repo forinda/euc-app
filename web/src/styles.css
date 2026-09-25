@@ -62,7 +62,41 @@ input {
   color: var(--text);
   min-width: 0;
 }
-.code-input { font-size: 1.4rem; letter-spacing: 0.2em; text-transform: uppercase; }
+.btn--block { width: 100%; padding-block: 0.85rem; font-size: 1.05rem; }
+
+/* Join-first home (Posh / Places / Wise pattern). */
+.home { display: flex; flex-direction: column; min-height: 100vh; padding-top: clamp(2rem, 12vh, 6rem); }
+.home__main { flex: 1; }
+.home h1 { font-size: clamp(1.8rem, 7vw, 2.4rem); }
+.home__form { display: grid; gap: 1rem; margin-top: 1.5rem; }
+.home__error { margin: -0.25rem 0 0; }
+.home__hint { text-align: center; margin-top: 1.25rem; font-size: 0.9rem; }
+.home__speaker { text-align: center; padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px)); }
+
+.code-boxes { position: relative; display: grid; grid-template-columns: repeat(6, 1fr); gap: clamp(0.35rem, 2vw, 0.6rem); }
+/* One real input over all six boxes: transparent, but it still takes taps, typing and paste. */
+.code-boxes__input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  opacity: 0;
+  font-size: 16px; /* stops iOS zooming on focus */
+  cursor: text;
+}
+.code-box {
+  aspect-ratio: 4 / 5;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: clamp(1.5rem, 7vw, 2rem);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.code-box--filled { border-color: var(--muted); }
+.code-box--active { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 25%, transparent); }
+.code-boxes--invalid .code-box { border-color: var(--error); }
 
 .btn {
   font: inherit;
@@ -136,6 +170,12 @@ input {
 .stage__meta { color: var(--muted); font-size: clamp(1rem, 2vw, 1.5rem); margin: 1.25rem 0 0; font-variant-numeric: tabular-nums; }
 .controls { border-top: 1px solid var(--border); padding: 1rem clamp(1rem, 4vw, 3rem); display: grid; gap: 0.75rem; background: var(--surface); }
 .present--projector .controls { display: none; }
+.btn--sm { padding: 0.35rem 0.75rem; font-size: 0.9rem; }
+.btn--ghost { background: transparent; }
+.drafts__title { font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); margin: 0.25rem 0 0.5rem; }
+.drafts__list { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; max-height: 14rem; overflow-y: auto; }
+.draft { display: flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); }
+.draft__text { flex: 1; min-width: 0; }
 .present--projector .qr { width: 160px; height: 160px; }
 
 /* Projector results (Yubo pattern): the percentage is the headline. */

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Put, Autowired, reply, type Ctx } from '@forinda/kickjs'
+import { Controller, Get, Post, Put, Delete, Autowired, reply, type Ctx } from '@forinda/kickjs'
 import { SessionService } from './session.service'
 import { createSessionSchema } from './dtos/create-session.dto'
 import { createQuestionSchema } from './dtos/create-question.dto'
@@ -56,6 +56,33 @@ export class SessionController {
   @Post('/:code/questions/:id/close')
   closeQuestion(ctx: Ctx<KickRoutes.SessionController['closeQuestion']>) {
     return this.sessions.closeQuestion(ctx.require('presenterSession'), ctx.params.id)
+  }
+
+  // Prepared questions — presenter-only, never part of the public snapshot.
+
+  @PresenterSession
+  @Get('/:code/drafts')
+  listDrafts(ctx: Ctx<KickRoutes.SessionController['listDrafts']>) {
+    return this.sessions.listDrafts(ctx.require('presenterSession'))
+  }
+
+  @PresenterSession
+  @Post('/:code/drafts', { body: createQuestionSchema, name: 'AddDraft' })
+  addDraft(ctx: Ctx<KickRoutes.SessionController['addDraft']>) {
+    return reply.created(this.sessions.addDraft(ctx.require('presenterSession'), ctx.body))
+  }
+
+  @PresenterSession
+  @Delete('/:code/drafts/:id')
+  deleteDraft(ctx: Ctx<KickRoutes.SessionController['deleteDraft']>) {
+    this.sessions.deleteDraft(ctx.require('presenterSession'), ctx.params.id)
+    return reply.noContent()
+  }
+
+  @PresenterSession
+  @Post('/:code/drafts/:id/publish')
+  publishDraft(ctx: Ctx<KickRoutes.SessionController['publishDraft']>) {
+    return reply.created(this.sessions.publishDraft(ctx.require('presenterSession'), ctx.params.id))
   }
 
   @Put('/:code/questions/:id/vote', { body: voteSchema, name: 'Vote' })

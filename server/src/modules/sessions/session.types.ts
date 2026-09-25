@@ -11,11 +11,20 @@ export interface Question {
   closedAt?: string
 }
 
+/** A question the presenter prepared but hasn't published. Never sent to the audience. */
+export interface Draft {
+  id: string
+  text: string
+  createdAt: string
+}
+
 export interface Session {
   code: string
   title: string | null
   presenterKey: string
   questions: Map<string, Question>
+  /** Prepared questions, in the order they were added. */
+  drafts: Map<string, Draft>
   /** The question on screen — stays set after it closes so final counts remain visible. */
   activeQuestionId: string | null
   createdAt: string

@@ -1,78 +1,69 @@
 import { useState, type FormEvent } from 'react'
+import { KickClientError } from '@forinda/kickjs-client'
 import { api } from '../api'
-import { describeError, presenterKey } from '../session'
+import { CODE_LENGTH, CodeInput } from '../CodeInput'
+import { describeError } from '../session'
 
+/** Join-first: most people opening the app are in the audience. */
 export function Home() {
-  const [title, setTitle] = useState('')
   const [code, setCode] = useState('')
-  const [busy, setBusy] = useState(false)
+  const [checking, setChecking] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  async function start(e: FormEvent) {
-    e.preventDefault()
-    setBusy(true)
+  async function join(candidate: string) {
+    if (candidate.length !== CODE_LENGTH || checking) return
+    setChecking(true)
     setError(null)
     try {
-      const session = await api.post('/sessions', { body: title.trim() ? { title: title.trim() } : {} })
-      presenterKey.set(session.code, session.presenterKey)
-      location.hash = `#/present/${session.code}`
+      // Check before leaving the page so a typo is fixed right here.
+      await api.get('/sessions/:code', { params: { code: candidate } })
+      location.hash = `#/join/${candidate}`
     } catch (err) {
-      setError(describeError(err))
-      setBusy(false)
+      setError(
+        err instanceof KickClientError && err.status === 404
+          ? 'No session with that code. Check the screen and try again.'
+          : describeError(err),
+      )
+      setChecking(false)
     }
   }
 
-  function join(e: FormEvent) {
+  const submit = (e: FormEvent) => {
     e.preventDefault()
-    const clean = code.trim().toUpperCase()
-    if (clean) location.hash = `#/join/${clean}`
+    join(code)
   }
 
   return (
-    <main className="page page--narrow">
-      <h1>Live Poll</h1>
-      <p className="muted">Ask the room a question and watch the answers come in live.</p>
-
-      <section className="card">
-        <h2>Join a session</h2>
-        <form onSubmit={join} className="row">
-          <input
-            aria-label="Session code"
-            placeholder="ABC123"
+    <main className="page page--narrow home">
+      <div className="home__main">
+        <h1>Join a live poll</h1>
+        <p className="muted">Enter the code shown on the screen.</p>
+        <form onSubmit={submit} className="home__form">
+          <CodeInput
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase())}
-            maxLength={6}
-            autoCapitalize="characters"
-            autoComplete="off"
-            className="code-input"
+            onChange={(next) => {
+              setCode(next)
+              setError(null)
+            }}
+            onComplete={join}
+            // Not disabled while checking: disabling drops focus, and after an
+            // error the next keystrokes would go nowhere. join() ignores repeats.
+            invalid={!!error}
           />
-          <button type="submit" className="btn btn--primary" disabled={code.trim().length !== 6}>
-            Join
+          {error && (
+            <p role="alert" className="error home__error">
+              {error}
+            </p>
+          )}
+          <button type="submit" className="btn btn--primary btn--block" disabled={code.length !== CODE_LENGTH || checking}>
+            {checking ? 'Joining…' : 'Join'}
           </button>
         </form>
-      </section>
-
-      <section className="card">
-        <h2>I'm the speaker</h2>
-        <form onSubmit={start} className="row">
-          <input
-            aria-label="Session title"
-            placeholder="Session title (optional)"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            maxLength={120}
-          />
-          <button type="submit" className="btn" disabled={busy}>
-            {busy ? 'Starting…' : 'Start a session'}
-          </button>
-        </form>
-      </section>
-
-      {error && (
-        <p role="alert" className="error">
-          {error}
-        </p>
-      )}
+        <p className="muted home__hint">Don't have a code? Ask the speaker.</p>
+      </div>
+      <p className="home__speaker">
+        <a href="#/start">I'm the speaker. Start a session →</a>
+      </p>
     </main>
   )
 }

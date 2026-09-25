@@ -3,14 +3,16 @@ import { api } from './api'
 import { Home } from './pages/Home'
 import { Join } from './pages/Join'
 import { Present } from './pages/Present'
+import { Start } from './pages/Start'
 
-// Hash routes: #/, #/present/:code, #/join/:code. No router dependency, and
+// Hash routes: #/, #/start, #/present/:code, #/join/:code. No router dependency, and
 // they work unchanged when SpaAdapter serves the build.
 function parseRoute(hash: string) {
   const [, page, code] = hash.replace(/^#/, '').split('/')
   const clean = code?.toUpperCase()
   if (page === 'present' && clean) return { page: 'present', code: clean } as const
   if (page === 'join' && clean) return { page: 'join', code: clean } as const
+  if (page === 'start') return { page: 'start' } as const
   return { page: 'home' } as const
 }
 
@@ -45,6 +47,8 @@ export function App() {
         <Present key={route.code} code={route.code} />
       ) : route.page === 'join' ? (
         <Join key={route.code} code={route.code} />
+      ) : route.page === 'start' ? (
+        <Start />
       ) : (
         <Home />
       )}

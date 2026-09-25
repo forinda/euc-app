@@ -42,6 +42,7 @@ export function createSessionRepository({
         ...init,
         code: newCode(),
         questions: new Map(),
+        drafts: new Map(),
         activeQuestionId: null,
         createdAt: new Date(now()).toISOString(),
         lastActivityAt: now(),
