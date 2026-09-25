@@ -1,0 +1,21 @@
+@import 'tailwindcss';
+
+/* `dark:` follows the system theme, and is forced inside any `.dark` element —
+   the presenter screen is always dark because it goes on a projector. */
+@custom-variant dark {
+  @media (prefers-color-scheme: dark) {
+    @slot;
+  }
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+}
+
+@layer base {
+  :root {
+    color-scheme: light dark;
+  }
+  body {
+    @apply bg-zinc-50 font-sans text-zinc-900 antialiased dark:bg-zinc-950 dark:text-zinc-100;
+  }
+}

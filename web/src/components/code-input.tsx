@@ -19,23 +19,21 @@ export function CodeInput({
   onChange,
   onComplete,
   invalid = false,
-  disabled = false,
 }: {
   value: string
   onChange: (code: string) => void
   onComplete?: (code: string) => void
   invalid?: boolean
-  disabled?: boolean
 }) {
   const [focused, setFocused] = useState(false)
+  const active = Math.min(value.length, CODE_LENGTH - 1)
   return (
-    <div className={`code-boxes${invalid ? ' code-boxes--invalid' : ''}`}>
+    <div className="relative grid grid-cols-6 gap-2">
       <input
-        className="code-boxes__input"
+        className="absolute inset-0 w-full cursor-text text-base opacity-0" // 16px: no iOS zoom on focus
         aria-label="Session code"
         aria-invalid={invalid}
         value={value}
-        disabled={disabled}
         autoFocus
         autoComplete="one-time-code"
         autoCapitalize="characters"
@@ -53,8 +51,14 @@ export function CodeInput({
         <span
           key={i}
           aria-hidden="true"
-          className={`code-box${value[i] ? ' code-box--filled' : ''}${
-            focused && i === Math.min(value.length, CODE_LENGTH - 1) ? ' code-box--active' : ''
+          className={`grid aspect-[4/5] place-items-center rounded-xl border-2 bg-white text-3xl font-extrabold tabular-nums dark:bg-zinc-900 ${
+            invalid
+              ? 'border-red-500'
+              : focused && i === active
+                ? 'border-indigo-500 ring-4 ring-indigo-500/25'
+                : value[i]
+                  ? 'border-zinc-400 dark:border-zinc-500'
+                  : 'border-zinc-200 dark:border-zinc-800'
           }`}
         >
           {value[i] ?? ''}

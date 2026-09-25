@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     // The KickJS server (kick dev) listens on 3000; the client's baseUrl is
     // the relative '/api/v1', so the browser hits Vite and Vite forwards.
