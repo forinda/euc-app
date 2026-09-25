@@ -5,14 +5,8 @@ import 'reflect-metadata'
 // cached schema would still be the base shape. See guide/configuration.
 import './config'
 import { bootstrap, expressRuntime } from '@forinda/kickjs'
-import { SpaAdapter } from '@forinda/kickjs/spa'
 import { modules } from './modules'
+import { adapters } from './adapters'
 
 // Export the app for the Vite plugin (dev mode)
-export const app = await bootstrap({ modules, runtime: expressRuntime(),
-  adapters: [
-    // Serves the built frontend from this origin in production.
-    // Inert until the client build exists, so `kick dev` (where Vite
-    // serves the client and proxies /api here) is unaffected.
-    SpaAdapter({ clientDir: "../web/dist" }),
-  ] })
+export const app = await bootstrap({ modules, adapters, runtime: expressRuntime() })

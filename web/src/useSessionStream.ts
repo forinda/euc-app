@@ -1,58 +1,42 @@
 import { useEffect, useState } from 'react'
-import { KickClientError } from '@forinda/kickjs-client'
-import { api } from './api'
+import { io, type Socket } from 'socket.io-client'
 import type { Snapshot } from './session'
 
 export type StreamStatus = 'connecting' | 'live' | 'reconnecting' | 'not-found'
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+/** Server → client events on the `/sessions` namespace (server/src/modules/sessions/session.gateway.ts). */
+interface SessionEvents {
+  snapshot: (snapshot: Snapshot) => void
+  'not-found': (payload: { code: string }) => void
+}
 
 /**
- * Live session state over SSE. `api.stream()` is fetch-based and does not
- * reconnect on its own, so this loops with backoff; the server sends a full
- * snapshot on every connect, so a reconnect resyncs without extra requests.
+ * Live session state over Socket.IO. The server sends a full snapshot on
+ * every (re)connect, so a dropped connection resyncs by itself; socket.io
+ * handles reconnecting with backoff.
  */
 export function useSessionStream(code: string, role: 'audience' | 'presenter' = 'audience') {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [status, setStatus] = useState<StreamStatus>('connecting')
 
   useEffect(() => {
-    // Aborting the signal cancels a stream even while it is still connecting;
-    // closing only after `api.stream()` resolves would leak one on a fast
-    // unmount (e.g. StrictMode's double effect), inflating the audience count.
-    const controller = new AbortController()
-    const stopped = () => controller.signal.aborted
-    let attempt = 0
-
-    async function run() {
-      while (!stopped()) {
-        try {
-          const stream = await api.stream('/sessions/:code/stream', {
-            params: { code },
-            query: { role },
-            signal: controller.signal,
-          })
-          for await (const ev of stream) {
-            if (ev.event !== 'snapshot') continue
-            attempt = 0
-            setSnapshot(ev.data)
-            setStatus('live')
-          }
-        } catch (err) {
-          if (stopped()) return
-          if (err instanceof KickClientError && err.status === 404) {
-            setStatus('not-found')
-            return
-          }
-        }
-        if (stopped()) return
-        setStatus('reconnecting')
-        await sleep(Math.min(1000 * 2 ** attempt++, 10_000))
-      }
+    // Same origin: the Vite proxy forwards /socket.io in dev, and the API
+    // process serves the app in production. WebSocket-only transport avoids
+    // long-polling, which would need sticky sessions behind a load balancer.
+    const socket: Socket<SessionEvents> = io('/sessions', { query: { code, role }, transports: ['websocket'] })
+    socket.on('snapshot', (next) => {
+      setSnapshot(next)
+      setStatus('live')
+    })
+    socket.on('not-found', () => setStatus('not-found'))
+    socket.on('disconnect', (reason) => {
+      // The server disconnects an unknown code on purpose; don't show "reconnecting" for that.
+      if (reason !== 'io server disconnect') setStatus('reconnecting')
+    })
+    socket.on('connect_error', () => setStatus('reconnecting'))
+    return () => {
+      socket.close()
     }
-
-    run()
-    return () => controller.abort()
   }, [code, role])
 
   return { snapshot, status }

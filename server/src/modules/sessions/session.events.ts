@@ -1,52 +1,62 @@
 /**
- * In-process pub/sub for live session updates.
+ * Presence + coalesced broadcasts for live sessions, delivered over Socket.IO.
  *
+ * Each session is a room (named by its code) in the `/sessions` namespace.
  * Broadcasts are coalesced per session: a burst of votes schedules one flush
- * `intervalMs` later, which builds the snapshot once and fans it out. A room
- * of 500 voting at once costs a few flushes, not 500 × 500 writes.
+ * `intervalMs` later, which builds the snapshot once and emits it to the
+ * room. A room of 500 voting at once costs a few emits, not 500 × 500.
  *
- * Single-process only — scaling past one instance needs Redis pub/sub here.
+ * Single-process only — scaling past one instance needs the Socket.IO Redis
+ * adapter (see SocketIoAdapter's `adapter` option).
  */
 import { createToken } from '@forinda/kickjs'
 import type { SessionSnapshot } from './session.types'
 
-type Listener = (snapshot: SessionSnapshot) => void
+export const SESSIONS_NAMESPACE = '/sessions'
 export type ListenerRole = 'audience' | 'presenter'
+type Emit = (code: string, snapshot: SessionSnapshot) => void
 
-export function createSessionEvents({ intervalMs = 250 }: { intervalMs?: number } = {}) {
-  // Role per listener, so the presenter's own screens don't count as audience.
-  const listeners = new Map<string, Map<Listener, ListenerRole>>()
+export function createSessionEvents({
+  emit,
+  intervalMs = 250,
+}: {
+  emit: Emit
+  intervalMs?: number
+}) {
+  // code → socket id → role, so the presenter's own screens don't count as audience.
+  const presence = new Map<string, Map<string, ListenerRole>>()
   const pending = new Map<string, () => SessionSnapshot | undefined>()
 
   function flush(code: string) {
     const build = pending.get(code)
     pending.delete(code)
     const snapshot = build?.()
-    if (!snapshot) return
-    for (const fn of listeners.get(code)?.keys() ?? []) fn(snapshot)
+    if (snapshot) emit(code, snapshot)
   }
 
   return {
-    subscribe(code: string, fn: Listener, role: ListenerRole): () => void {
-      let map = listeners.get(code)
-      if (!map) listeners.set(code, (map = new Map()))
-      map.set(fn, role)
-      return () => {
-        map.delete(fn)
-        if (!map.size) listeners.delete(code)
-      }
+    join(code: string, socketId: string, role: ListenerRole) {
+      let sockets = presence.get(code)
+      if (!sockets) presence.set(code, (sockets = new Map()))
+      sockets.set(socketId, role)
     },
 
-    /** Connected audience devices (open streams not marked as presenter). */
+    leave(code: string, socketId: string) {
+      const sockets = presence.get(code)
+      sockets?.delete(socketId)
+      if (sockets && !sockets.size) presence.delete(code)
+    },
+
+    /** Connected audience devices (sockets not marked as presenter). */
     audienceCount(code: string) {
       let n = 0
-      for (const role of listeners.get(code)?.values() ?? []) if (role === 'audience') n++
+      for (const role of presence.get(code)?.values() ?? []) if (role === 'audience') n++
       return n
     },
 
     /** Schedule a broadcast; `build` runs once at flush time, so it sees the latest state. */
     publish(code: string, build: () => SessionSnapshot | undefined) {
-      if (!listeners.has(code)) return
+      if (!presence.has(code)) return
       const scheduled = pending.has(code)
       pending.set(code, build)
       if (!scheduled) setTimeout(() => flush(code), intervalMs)

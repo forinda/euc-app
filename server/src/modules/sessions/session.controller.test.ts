@@ -1,5 +1,4 @@
 import { createServer, type Server } from 'node:http'
-import type { AddressInfo } from 'node:net'
 import { randomUUID } from 'node:crypto'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import request from 'supertest'
@@ -134,52 +133,5 @@ describe('SessionController', () => {
     expect((await vote(code, id, randomUUID(), 'maybe' as 'yes')).status).toBe(422)
     expect((await vote(code, 'nope', randomUUID(), 'yes')).status).toBe(404)
     expect((await http.get(`${BASE}/ZZZZZZ/stream`)).status).toBe(404)
-  })
-
-  it('streams a snapshot on connect and after each change', async () => {
-    const { code, presenterKey } = await startSession()
-    const { port } = server.address() as AddressInfo
-    const controller = new AbortController()
-    const res = await fetch(`http://127.0.0.1:${port}${BASE}/${code}/stream`, {
-      signal: controller.signal,
-    })
-    expect(res.headers.get('content-type')).toContain('text/event-stream')
-
-    const reader = res.body!.getReader()
-    const decoder = new TextDecoder()
-    let buffer = ''
-    async function nextSnapshot() {
-      for (;;) {
-        const end = buffer.indexOf('\n\n')
-        if (end >= 0) {
-          const block = buffer.slice(0, end)
-          buffer = buffer.slice(end + 2)
-          const data = block.split('\n').find((line) => line.startsWith('data:'))
-          if (block.includes('event: snapshot') && data) return JSON.parse(data.slice(5))
-          continue
-        }
-        const { value, done } = await reader.read()
-        if (done) throw new Error('stream ended')
-        buffer += decoder.decode(value, { stream: true })
-      }
-    }
-
-    try {
-      expect(await nextSnapshot()).toMatchObject({
-        code,
-        title: 'Keynote',
-        audience: 1,
-        question: null,
-      })
-
-      const { id } = await publish(code, presenterKey)
-      // A burst of votes arrives coalesced — keep reading until the stream catches up.
-      await Promise.all(Array.from({ length: 20 }, () => vote(code, id, randomUUID(), 'yes')))
-      let snapshot = await nextSnapshot()
-      while (snapshot.question?.total !== 20) snapshot = await nextSnapshot()
-      expect(snapshot.question).toMatchObject({ id, status: 'open', yes: 20, no: 0 })
-    } finally {
-      controller.abort()
-    }
   })
 })

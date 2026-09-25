@@ -40,11 +40,11 @@ export interface QuestionSnapshot {
   total: number
 }
 
-/** The public view of a session — what GET /:code and every SSE `snapshot` event carry. */
+/** The public view of a session — what GET /:code and every Socket.IO `snapshot` event carry. */
 export interface SessionSnapshot {
   code: string
   title: string | null
-  /** Audience devices connected to the live stream right now. */
+  /** Audience devices connected over Socket.IO right now. */
   audience: number
   question: QuestionSnapshot | null
 }

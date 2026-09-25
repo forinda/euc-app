@@ -3,11 +3,12 @@
  *
  * A presenter creates a session (join code + secret presenter key), publishes
  * questions one at a time, and the audience votes from their phones. Every
- * change is pushed to `GET /sessions/:code/stream` subscribers over SSE.
+ * change is pushed to the session's Socket.IO room (see session.gateway.ts).
  */
 import { defineModule } from '@forinda/kickjs'
+import { SOCKET_IO } from '@forinda/kickjs-ws/socket.io'
 import { SESSION_REPOSITORY, createSessionRepository } from './session.repository'
-import { SESSION_EVENTS, createSessionEvents } from './session.events'
+import { SESSION_EVENTS, SESSIONS_NAMESPACE, createSessionEvents } from './session.events'
 import { SessionController } from './session.controller'
 
 // Eagerly load every module file so decorators register in the DI container.
@@ -18,7 +19,17 @@ export const SessionModule = defineModule({
   build: () => ({
     register(container) {
       container.registerFactory(SESSION_REPOSITORY, () => createSessionRepository())
-      container.registerFactory(SESSION_EVENTS, () => createSessionEvents())
+      container.registerFactory(SESSION_EVENTS, () =>
+        createSessionEvents({
+          // Resolved per emit: SocketIoAdapter registers SOCKET_IO at startup,
+          // after modules register. Without the adapter (unit tests) there
+          // are no sockets to reach, so emitting is a no-op.
+          emit: (code, snapshot) => {
+            if (!container.has(SOCKET_IO)) return
+            container.resolve(SOCKET_IO).of(SESSIONS_NAMESPACE).to(code).emit('snapshot', snapshot)
+          },
+        }),
+      )
     },
 
     routes() {

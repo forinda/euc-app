@@ -26,15 +26,18 @@ export class SessionService {
     return this.toSnapshot(this.requireSession(code))
   }
 
-  /** Joins and leaves change the audience count, so both broadcast a snapshot. */
-  subscribe(code: string, fn: (snapshot: SessionSnapshot) => void, role: ListenerRole) {
+  /** A live socket joined: count it, tell the room, and return its first snapshot. */
+  connect(code: string, socketId: string, role: ListenerRole): SessionSnapshot {
     const session = this.requireSession(code)
-    const unsubscribe = this.events.subscribe(session.code, fn, role)
+    this.events.join(session.code, socketId, role)
     this.broadcast(session)
-    return () => {
-      unsubscribe()
-      this.broadcast(session)
-    }
+    return this.toSnapshot(session)
+  }
+
+  disconnect(code: string, socketId: string) {
+    this.events.leave(code, socketId)
+    const session = this.repo.find(code)
+    if (session) this.broadcast(session)
   }
 
   // Presenter-only: callers pass the session the PresenterSession contributor verified.
