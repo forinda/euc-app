@@ -26,6 +26,13 @@ const envSchema = fromZod(
     // process's working directory, so set an absolute path in production
     // (the Dockerfile does) — the default only works when started from server/.
     CLIENT_DIR: z.string().default('../web/dist'),
+    // Session store (see src/adapters/session-infra.adapter.ts). When both are
+    // set, sessions live in Upstash Redis; otherwise in memory. Vercel's
+    // Upstash integration may inject the KV_REST_API_* names instead.
+    UPSTASH_REDIS_REST_URL: z.url().optional(),
+    UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
+    KV_REST_API_URL: z.url().optional(),
+    KV_REST_API_TOKEN: z.string().min(1).optional(),
     // DATABASE_URL: z.string().url(),
   }),
 )

@@ -56,7 +56,13 @@ describe('SessionController', () => {
     expect(presenterKey).toBeTruthy()
 
     const snapshot = await http.get(`${BASE}/${code.toLowerCase()}`)
-    expect(snapshot.body).toEqual({ code, title: 'Keynote', version: 0, audience: 0, question: null })
+    expect(snapshot.body).toEqual({
+      code,
+      title: 'Keynote',
+      version: 0,
+      audience: 0,
+      question: null,
+    })
   })
 
   it('counts one vote per device, lets it change, and freezes on close', async () => {

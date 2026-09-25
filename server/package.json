@@ -12,6 +12,7 @@
     "@forinda/kickjs": "^8.6.0",
     "@forinda/kickjs-schema": "^0.2.0",
     "@forinda/kickjs-ws": "^7.1.1",
+    "@upstash/redis": "^1.39.0",
     "dotenv": "^18.0.3",
     "express": "^5.2.1",
     "reflect-metadata": "^0.2.2",
