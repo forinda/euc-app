@@ -16,8 +16,11 @@ pnpm dev            # server (kick dev) + web (vite), in parallel
 
 Server: http://localhost:3000 · Web: http://localhost:5173 (Vite proxies `/api`).
 
-To vote from phones on the same Wi-Fi during development, start the web app
-with `pnpm --filter ./web dev --host` and open the printed Network address.
+To vote from phones on the same Wi-Fi during development, just use `pnpm dev`:
+the web dev server listens on your network, and the presenter screen's join
+link and QR code use your machine's LAN address even when you opened it as
+`localhost`. Set `VITE_PUBLIC_URL` (e.g. a tunnel URL) to override the address
+shown; deployed builds use the page's own address.
 
 ## Deploy
 

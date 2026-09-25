@@ -117,7 +117,7 @@ export function Present({ code }: { code: string }) {
         </p>
         <div className="hidden self-stretch border-l border-zinc-800 sm:block" aria-hidden="true" />
         <p className="text-[clamp(1rem,1.8vw,1.35rem)] leading-snug text-zinc-400">
-          Or visit <strong className="text-zinc-100">{location.host}</strong>
+          Or visit <strong className="text-zinc-100">{new URL(url).host}</strong>
           <br />
           and enter the code{' '}
           <strong className="text-[1.35em] tracking-wider text-zinc-100 tabular-nums">{chunkCode(code)}</strong>

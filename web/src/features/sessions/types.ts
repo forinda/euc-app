@@ -1,3 +1,5 @@
+import { publicOrigin } from '../../lib/public-url'
+
 // All derived from the generated client map — no hand-written API shapes.
 type Api = KickClientApi.Api
 
@@ -14,4 +16,5 @@ export const chunkCode = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}
 
 export const percent = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0)
 
-export const joinUrl = (code: string) => `${location.origin}/join/${code}`
+/** The link a phone opens to join (also encoded in the QR code). */
+export const joinUrl = (code: string) => `${publicOrigin()}/join/${code}`
