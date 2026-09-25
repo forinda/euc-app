@@ -1,43 +1,53 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
+import { Home } from './pages/Home'
+import { Join } from './pages/Join'
+import { Present } from './pages/Present'
 
-// The response types below are INFERRED from the server's handlers —
-// change server/src/modules/hello/hello.service.ts and these types follow on
-// the next `kick typegen`. Not under `kick dev`: resolving the client map
-// builds a whole TypeScript program, so it is a build step, not a per-save one.
-type Greeting = Awaited<ReturnType<typeof fetchGreeting>>
+// Hash routes: #/, #/present/:code, #/join/:code. No router dependency, and
+// they work unchanged when SpaAdapter serves the build.
+function parseRoute(hash: string) {
+  const [, page, code] = hash.replace(/^#/, '').split('/')
+  const clean = code?.toUpperCase()
+  if (page === 'present' && clean) return { page: 'present', code: clean } as const
+  if (page === 'join' && clean) return { page: 'join', code: clean } as const
+  return { page: 'home' } as const
+}
 
-function fetchGreeting() {
-  return api.get('/hello')
+function useHashRoute() {
+  const [route, setRoute] = useState(() => parseRoute(location.hash))
+  useEffect(() => {
+    const sync = () => setRoute(parseRoute(location.hash))
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+  return route
+}
+
+function HealthDot() {
+  const [up, setUp] = useState<boolean | null>(null)
+  useEffect(() => {
+    api
+      .get('/hello/health')
+      .then((h) => setUp(h.status === 'ok'))
+      .catch(() => setUp(false))
+  }, [])
+  const label = up === null ? 'checking server' : up ? 'server up' : 'server down'
+  return <span className={`health health--${up === null ? 'unknown' : up ? 'up' : 'down'}`} title={label} aria-label={label} />
 }
 
 export function App() {
-  const [greeting, setGreeting] = useState<Greeting | null>(null)
-  const [health, setHealth] = useState<string>('checking…')
-
-  useEffect(() => {
-    fetchGreeting().then(setGreeting).catch(console.error)
-    api
-      .get('/hello/health')
-      .then((h) => setHealth(h.status))
-      .catch(() => setHealth('down'))
-  }, [])
-
+  const route = useHashRoute()
   return (
-    <main style={{ fontFamily: 'system-ui', maxWidth: 640, margin: '4rem auto', padding: '0 1rem' }}>
-      <h1>KickJS fullstack</h1>
-      <p>
-        <strong>{greeting?.message ?? 'loading…'}</strong>
-      </p>
-      <p>
-        Server said hello at <code>{greeting?.timestamp ?? '…'}</code> — health:{' '}
-        <code>{health}</code>
-      </p>
-      <p style={{ color: '#666' }}>
-        This call is typed end to end: <code>api.get('/hello')</code> returns the exact shape
-        <code> HelloService.greet()</code> produces. Rename a field on the server and this file
-        stops compiling.
-      </p>
-    </main>
+    <>
+      <HealthDot />
+      {route.page === 'present' ? (
+        <Present key={route.code} code={route.code} />
+      ) : route.page === 'join' ? (
+        <Join key={route.code} code={route.code} />
+      ) : (
+        <Home />
+      )}
+    </>
   )
 }

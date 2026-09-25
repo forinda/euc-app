@@ -1,0 +1,129 @@
+:root {
+  --bg: #f7f7f5;
+  --surface: #ffffff;
+  --text: #16181d;
+  --muted: #5f6470;
+  --border: #d9dbe0;
+  --primary: #2952cc;
+  --primary-text: #ffffff;
+  --yes: #1f8a4c;
+  --no: #c2372f;
+  --track: #e7e8ec;
+  --error: #b3261e;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111317;
+    --surface: #1a1d23;
+    --text: #eceef2;
+    --muted: #9aa0ab;
+    --border: #2e323a;
+    --primary: #6d8ff5;
+    --primary-text: #0b0d12;
+    --yes: #3cc07a;
+    --no: #f06a60;
+    --track: #262a31;
+    --error: #ff8a80;
+    color-scheme: dark;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 16px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+h1, h2 { line-height: 1.2; margin: 0 0 0.5em; }
+a { color: var(--primary); }
+.muted { color: var(--muted); }
+.error { color: var(--error); }
+
+.page { padding: 1.5rem clamp(1rem, 4vw, 3rem); min-height: 100vh; }
+.page--narrow { max-width: 34rem; margin: 0 auto; }
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin: 1rem 0;
+}
+.row { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+.row > input { flex: 1 1 12rem; }
+
+input {
+  font: inherit;
+  padding: 0.65rem 0.8rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  min-width: 0;
+}
+.code-input { font-size: 1.4rem; letter-spacing: 0.2em; text-transform: uppercase; }
+
+.btn {
+  font: inherit;
+  font-weight: 600;
+  padding: 0.65rem 1.1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.btn--primary { background: var(--primary); border-color: var(--primary); color: var(--primary-text); }
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+/* Presenter */
+.present { display: flex; flex-direction: column; gap: 1.5rem; }
+.present__header { display: flex; justify-content: space-between; gap: 1.5rem; flex-wrap: wrap; align-items: center; }
+.join-box { display: flex; gap: 1rem; align-items: center; }
+.qr { width: 132px; height: 132px; border-radius: 8px; background: #fff; }
+.join-code { font-size: clamp(2rem, 5vw, 3.5rem); font-weight: 800; letter-spacing: 0.12em; font-variant-numeric: tabular-nums; }
+.stage { flex: 1; }
+.stage__question { font-size: clamp(1.8rem, 4.5vw, 3.6rem); margin-bottom: 1.2em; }
+.controls { border-top: 1px solid var(--border); padding-top: 1rem; display: grid; gap: 0.75rem; }
+.present--projector .controls { display: none; }
+.present--projector .qr { width: 200px; height: 200px; }
+
+/* Results */
+.results { display: grid; gap: 1rem; margin: 1rem 0; }
+.bar__label { display: flex; justify-content: space-between; font-weight: 700; }
+.bar__count small { font-weight: 400; color: var(--muted); }
+.bar__track { height: 1.25rem; background: var(--track); border-radius: 999px; overflow: hidden; }
+.bar__fill { height: 100%; border-radius: 999px; transition: width 300ms ease; }
+.bar--yes .bar__fill { background: var(--yes); }
+.bar--no .bar__fill { background: var(--no); }
+.results--large { gap: 1.75rem; }
+.results--large .bar__label { font-size: clamp(1.4rem, 3vw, 2.4rem); }
+.results--large .bar__track { height: clamp(2rem, 5vh, 3.5rem); }
+
+/* Audience */
+.join__question { font-size: clamp(1.5rem, 6vw, 2.2rem); margin: 1rem 0 1.5rem; }
+.vote-buttons { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.vote {
+  font: inherit;
+  font-size: 1.6rem;
+  font-weight: 800;
+  padding: 1.6rem 0;
+  border-radius: 14px;
+  border: 3px solid transparent;
+  color: #fff;
+  cursor: pointer;
+}
+.vote--yes { background: var(--yes); }
+.vote--no { background: var(--no); }
+.vote:disabled { cursor: default; }
+.vote:disabled:not(.vote--chosen) { opacity: 0.45; }
+.vote--chosen { border-color: var(--text); }
+
+/* Status */
+.status { font-size: 0.8rem; padding: 0.15rem 0.5rem; border-radius: 999px; background: var(--track); margin-left: 0.5rem; }
+.status--live { color: var(--yes); }
+.status--reconnecting, .status--connecting { color: var(--muted); }
+.health { position: fixed; top: calc(0.75rem + env(safe-area-inset-top, 0px)); right: 0.75rem; width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+.health--up { background: var(--yes); }
+.health--down { background: var(--no); }
