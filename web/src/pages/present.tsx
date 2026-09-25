@@ -4,6 +4,7 @@ import QRCode from 'qrcode'
 import { Button } from '../components/button'
 import { ErrorText } from '../components/error-text'
 import { TextInput } from '../components/text-input'
+import { TextLink } from '../components/text-link'
 import { Results } from '../features/sessions/components/results'
 import {
   useAddDraft,
@@ -18,14 +19,14 @@ import { useSessionSocket } from '../features/sessions/use-session-socket'
 import { describeError, isNotFound } from '../lib/errors'
 import { presenterKeyStore } from '../lib/storage'
 
-function Message({ title, body, link }: { title: string; body: string; link: { href: string; label: string } }) {
+function Message({ title, body, link }: { title: string; body: string; link: { to: string; label: string } }) {
   return (
     <main className="mx-auto max-w-md px-4 py-16">
       <h1 className="text-2xl font-bold">{title}</h1>
       <p className="mt-2 text-zinc-500 dark:text-zinc-400">{body}</p>
-      <a href={link.href} className="mt-4 inline-block font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+      <TextLink to={link.to} className="mt-4 inline-block">
         {link.label}
-      </a>
+      </TextLink>
     </main>
   )
 }
@@ -65,7 +66,7 @@ export function Present({ code }: { code: string }) {
       <Message
         title={`Session ${code} not found`}
         body="It may have expired or the server restarted."
-        link={{ href: '#/start', label: 'Start a new session' }}
+        link={{ to: '/start', label: 'Start a new session' }}
       />
     )
   }
@@ -74,7 +75,7 @@ export function Present({ code }: { code: string }) {
       <Message
         title={`Session ${code}`}
         body="This browser isn't the presenter for this session."
-        link={{ href: `#/join/${code}`, label: 'Join as audience instead' }}
+        link={{ to: `/join/${code}`, label: 'Join as audience instead' }}
       />
     )
   }

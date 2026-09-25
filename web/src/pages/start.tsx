@@ -1,28 +1,29 @@
 import { useState, type FormEvent } from 'react'
+import { useNavigate } from 'react-router'
 import { Button } from '../components/button'
 import { ErrorText } from '../components/error-text'
 import { TextInput } from '../components/text-input'
+import { TextLink } from '../components/text-link'
 import { useCreateSession } from '../features/sessions/mutations'
 import { describeError } from '../lib/errors'
 
 export function Start() {
   const [title, setTitle] = useState('')
   const createSession = useCreateSession()
+  const navigate = useNavigate()
 
   const start = (e: FormEvent) => {
     e.preventDefault()
     createSession.mutate(title, {
-      onSuccess: (session) => {
-        location.hash = `#/present/${session.code}`
-      },
+      onSuccess: (session) => navigate(`/present/${session.code}`),
     })
   }
 
   return (
     <main className="mx-auto max-w-md px-4 py-10">
-      <a href="#/" className="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+      <TextLink to="/" className="text-sm">
         ← Join instead
-      </a>
+      </TextLink>
       <h1 className="mt-6 text-3xl font-bold tracking-tight">Start a session</h1>
       <p className="mt-2 text-zinc-500 dark:text-zinc-400">
         You'll get a join code and QR code to put on screen. Prepare questions in advance or publish them as you go.

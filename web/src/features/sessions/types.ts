@@ -14,4 +14,4 @@ export const chunkCode = (code: string) => `${code.slice(0, 3)} ${code.slice(3)}
 
 export const percent = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0)
 
-export const joinUrl = (code: string) => `${location.origin}${location.pathname}#/join/${code}`
+export const joinUrl = (code: string) => `${location.origin}/join/${code}`

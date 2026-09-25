@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { ErrorText } from '../components/error-text'
+import { TextLink } from '../components/text-link'
 import { useVote } from '../features/sessions/mutations'
 import { sessionQueries } from '../features/sessions/queries'
 import { percent, type Choice } from '../features/sessions/types'
@@ -45,9 +46,9 @@ export function Join({ code }: { code: string }) {
       <main className="mx-auto max-w-md px-4 py-16">
         <h1 className="text-2xl font-bold">Session {code} not found</h1>
         <p className="mt-2 text-zinc-500 dark:text-zinc-400">Check the code on the screen and try again.</p>
-        <a href="#/" className="mt-4 inline-block font-medium text-indigo-600 hover:underline dark:text-indigo-400">
+        <TextLink to="/" className="mt-4 inline-block">
           Back
-        </a>
+        </TextLink>
       </main>
     )
   }
