@@ -1,0 +1,23 @@
+{
+  "name": "euc-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel -r run dev",
+    "start": "pnpm --filter ./server run start",
+    "dev:server": "pnpm --filter ./server dev",
+    "dev:web": "pnpm --filter ./web dev",
+    "build": "pnpm --filter ./server exec kick typegen && pnpm -r run build",
+    "build:netlify": "pnpm build && pnpm --filter ./server exec kick build:netlify",
+    "build:vercel": "pnpm build && pnpm --filter ./server exec kick build:vercel",
+    "typecheck": "kick typecheck --cwd server && kick typecheck --cwd web"
+  },
+  "devDependencies": {
+    "@forinda/kickjs-cli": "^8.4.0"
+  },
+  "workspaces": [
+    "server",
+    "web"
+  ]
+}

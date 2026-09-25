@@ -1,0 +1,11 @@
+packages:
+  - server
+  - web
+
+allowBuilds:
+  '@swc/core': true
+  esbuild: true
+
+onlyBuiltDependencies:
+  - '@swc/core'
+  - esbuild
