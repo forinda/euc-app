@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import * as Ably from 'ably'
+import type * as Ably from 'ably'
 import { hasStatus, isNotFound } from '../../lib/errors'
 import { sessionKeys } from './keys'
 import { sessionQueries } from './queries'
@@ -73,7 +73,12 @@ export function useSessionLive(code: string, role: SocketRole = 'audience') {
       }
       if (cancelled) return
 
-      client = new Ably.Realtime({
+      // Loaded only once live updates are available: polling-only screens
+      // never download the Ably client (it's most of a bundle's weight).
+      const { Realtime } = await import('ably')
+      if (cancelled) return
+
+      client = new Realtime({
         // First connect reuses the token we just fetched; renewals fetch anew.
         authCallback: (_params, callback) => {
           const pending = firstToken

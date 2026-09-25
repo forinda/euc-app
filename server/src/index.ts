@@ -4,9 +4,10 @@ import 'reflect-metadata'
 // this line ConfigService.get('YOUR_KEY') returns undefined because the
 // cached schema would still be the base shape. See guide/configuration.
 import './config'
-import { bootstrap, expressRuntime } from '@forinda/kickjs'
-import { modules } from './modules'
-import { adapters } from './adapters'
+import { bootstrap } from '@forinda/kickjs'
+import { createAppOptions } from './app-options'
 
+// Long-lived server (`kick dev`, Docker). Options are shared with the Vercel
+// entry (src/serverless.ts); change them in src/app-options.ts.
 // Export the app for the Vite plugin (dev mode)
-export const app = await bootstrap({ modules, adapters, runtime: expressRuntime() })
+export const app = await bootstrap(createAppOptions({ serveClient: true }))

@@ -14,41 +14,70 @@ pnpm install
 pnpm dev            # server (kick dev) + web (vite), in parallel
 ```
 
-Server: http://localhost:3000 · Web: http://localhost:5173 (Vite proxies `/api` and `/socket.io`).
+Server: http://localhost:3000 · Web: http://localhost:5173 (Vite proxies `/api`).
 
 To vote from phones on the same Wi-Fi during development, start the web app
 with `pnpm --filter ./web dev --host` and open the printed Network address.
 
 ## Deploy
 
-The app is **one long-running Node process**: the KickJS API, Socket.IO for
-live updates, and the built React app (served by `SpaAdapter`). It needs an
-always-on host (Render, Fly.io, Railway, a VPS). Serverless functions
-(Netlify/Vercel) can't run it: they don't support Socket.IO, and sessions
-live in memory ([kickjs.app/guide/serverless](https://kickjs.app/guide/serverless.html)).
+### Vercel (recommended)
+
+The React app is served from Vercel's CDN and the KickJS API runs as one
+serverless function (`server/src/serverless.ts`, built by
+`kick build:vercel`). Functions don't share memory or hold connections, so two
+services do that part:
+
+- **Upstash Redis** stores sessions, questions, votes and drafts.
+- **Ably** pushes live updates to the projector and phones, and counts who has joined.
+
+`SessionInfraAdapter` (`server/src/adapters/session-infra.adapter.ts`) picks
+each implementation from env: Redis if its vars are set (else in-memory), and
+Ably if its key is set (else screens poll every 2 s).
+
+1. **Import the repo** in Vercel. Root Directory: `./`; Framework Preset:
+   **Other**. `vercel.json` sets the build command (`pnpm run build:vercel`).
+2. **Add Upstash Redis:** Project → Storage → Marketplace → Upstash Redis →
+   connect to this project. It injects the Redis env vars.
+3. **Add Ably:** create an app at ably.com and copy an API key with publish,
+   subscribe and presence capabilities. Add it as `ABLY_API_KEY` under
+   Project → Settings → Environment Variables. (Optional: without it,
+   screens poll every 2 s and the projector shows no join count.)
+4. **Deploy** (push to the connected branch, or `vercel --prod`).
+
+Check the function logs after the first request: they say which store and
+realtime service were picked. A warning that says *"in-memory on Vercel"*
+means Upstash isn't connected yet, and sessions will be lost or split.
+
+Build locally: `pnpm build:vercel` writes `.vercel/output` (static files, the
+`api` function, routes with the SPA fallback).
+
+| Env | Needed on Vercel | Notes |
+| --- | --- | --- |
+| `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` | Yes | Or `KV_REST_API_URL` / `KV_REST_API_TOKEN`, whichever names the integration injects. |
+| `ABLY_API_KEY` | Recommended | Server-only; browsers get short-lived tokens from `/api/v1/sessions/:code/realtime-token`. |
+
+### Docker (any always-on host)
+
+The same app as one long-running Node process, which also serves the web app:
 
 ```bash
 docker build -t euc-app .
 docker run -p 3000:3000 euc-app      # http://localhost:3000
 ```
 
-Or without Docker: `pnpm install && pnpm build && CLIENT_DIR=$PWD/web/dist pnpm start`.
+With no env it uses the in-memory store (fine for **one** instance; a restart
+ends live sessions) and polling. Add the Upstash and Ably vars above to share
+state across instances and push live updates. `CLIENT_DIR` (default
+`../web/dist`, `/app/web` in the image) points at the built web app. Health
+check: `GET /api/v1/hello/health`.
 
-| Env | Default | Notes |
-| --- | --- | --- |
-| `PORT` | `3000` | Most hosts set this for you. |
-| `NODE_ENV` | `development` | `production` in the image. |
-| `CLIENT_DIR` | `../web/dist` | Built web app. Relative paths resolve from the working directory, so use an absolute path in production (the image uses `/app/web`). |
-| `LOG_LEVEL` | `info` | |
+### Local development
 
-Health check: `GET /api/v1/hello/health` (wired as the image's `HEALTHCHECK`).
-
-**Run one instance.** Sessions and votes are in memory, so a restart ends
-live sessions and a second instance wouldn't see the first one's rooms.
-Scaling out needs a shared store (e.g. Redis) plus the Socket.IO Redis adapter.
-If the host puts a proxy in front, it must allow WebSocket upgrades on
-`/socket.io` (the client uses WebSocket transport only, so no sticky sessions
-are needed).
+`pnpm dev` works with no accounts: in-memory store and polling. Put
+`ABLY_API_KEY=...` in `server/.env` to try live updates. To test the Redis
+store without Upstash, run Redis plus `hiett/serverless-redis-http` (an Upstash
+REST emulator) in Docker; see `server/src/modules/sessions/session.repository.contract.test.ts`.
 
 ## The type loop
 

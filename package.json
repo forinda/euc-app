@@ -10,6 +10,7 @@
     "dev:server": "pnpm --filter ./server dev",
     "dev:web": "pnpm --filter ./web dev",
     "build": "pnpm --filter ./server exec kick typegen && pnpm -r run build",
+    "build:vercel": "pnpm build && pnpm --filter ./server exec kick build:vercel",
     "typecheck": "kick typecheck --cwd server && kick typecheck --cwd web"
   },
   "devDependencies": {

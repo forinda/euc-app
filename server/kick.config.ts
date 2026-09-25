@@ -30,6 +30,18 @@ export default defineConfig({
     client: true,
   },
 
+  // `kick build:vercel` (run by `pnpm build:vercel` at the workspace root):
+  // bundles src/serverless.ts into one Vercel function serving /api/*, and
+  // publishes web/dist as static files with an index.html fallback for
+  // client routes. These are the fullstack defaults, spelled out.
+  deploy: {
+    apiPath: '/api',
+    staticDir: '../web/dist',
+    siteRoot: '..',
+    publishDir: 'web/dist',
+    vercelRuntime: 'nodejs22.x',
+  },
+
   commands: [
     {
       name: 'test',

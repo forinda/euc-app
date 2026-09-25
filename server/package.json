@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "kick dev",
     "build": "kick build",
+    "build:vercel": "kick build && kick build:vercel",
     "start": "kick start",
     "test": "vitest run"
   },

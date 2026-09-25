@@ -57,7 +57,15 @@ export const SessionInfraAdapter = defineAdapter({
         redis = new Redis({ ...credentials, automaticDeserialization: false })
         return createRedisSessionRepository(redis)
       }
-      log.info('Session store: in-memory (single process only)')
+      if (process.env.VERCEL) {
+        // Vercel sets VERCEL=1. Each function instance has its own memory, so
+        // sessions would be split between instances and lost on scale-down.
+        log.warn(
+          'Session store: in-memory on Vercel. Sessions WILL be lost or split across instances. Connect Upstash Redis (Vercel Marketplace) to fix this.',
+        )
+      } else {
+        log.info('Session store: in-memory (single process only)')
+      }
       return createMemorySessionRepository()
     }
 
