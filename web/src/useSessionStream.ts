@@ -12,20 +12,26 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
  * reconnect on its own, so this loops with backoff; the server sends a full
  * snapshot on every connect, so a reconnect resyncs without extra requests.
  */
-export function useSessionStream(code: string) {
+export function useSessionStream(code: string, role: 'audience' | 'presenter' = 'audience') {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null)
   const [status, setStatus] = useState<StreamStatus>('connecting')
 
   useEffect(() => {
-    let stopped = false
-    let close: (() => void) | undefined
+    // Aborting the signal cancels a stream even while it is still connecting;
+    // closing only after `api.stream()` resolves would leak one on a fast
+    // unmount (e.g. StrictMode's double effect), inflating the audience count.
+    const controller = new AbortController()
+    const stopped = () => controller.signal.aborted
     let attempt = 0
 
     async function run() {
-      while (!stopped) {
+      while (!stopped()) {
         try {
-          const stream = await api.stream('/sessions/:code/stream', { params: { code } })
-          close = () => stream.close()
+          const stream = await api.stream('/sessions/:code/stream', {
+            params: { code },
+            query: { role },
+            signal: controller.signal,
+          })
           for await (const ev of stream) {
             if (ev.event !== 'snapshot') continue
             attempt = 0
@@ -33,23 +39,21 @@ export function useSessionStream(code: string) {
             setStatus('live')
           }
         } catch (err) {
+          if (stopped()) return
           if (err instanceof KickClientError && err.status === 404) {
             setStatus('not-found')
             return
           }
         }
-        if (stopped) return
+        if (stopped()) return
         setStatus('reconnecting')
         await sleep(Math.min(1000 * 2 ** attempt++, 10_000))
       }
     }
 
     run()
-    return () => {
-      stopped = true
-      close?.()
-    }
-  }, [code])
+    return () => controller.abort()
+  }, [code, role])
 
   return { snapshot, status }
 }

@@ -52,7 +52,7 @@ describe('SessionController', () => {
     expect(presenterKey).toBeTruthy()
 
     const snapshot = await http.get(`${BASE}/${code.toLowerCase()}`)
-    expect(snapshot.body).toEqual({ code, title: 'Keynote', question: null })
+    expect(snapshot.body).toEqual({ code, title: 'Keynote', audience: 0, question: null })
   })
 
   it('counts one vote per device, lets it change, and freezes on close', async () => {
@@ -165,7 +165,12 @@ describe('SessionController', () => {
     }
 
     try {
-      expect(await nextSnapshot()).toEqual({ code, title: 'Keynote', question: null })
+      expect(await nextSnapshot()).toMatchObject({
+        code,
+        title: 'Keynote',
+        audience: 1,
+        question: null,
+      })
 
       const { id } = await publish(code, presenterKey)
       // A burst of votes arrives coalesced — keep reading until the stream catches up.

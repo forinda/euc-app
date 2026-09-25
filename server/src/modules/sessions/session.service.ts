@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto'
 import { Service, Inject, HttpException } from '@forinda/kickjs'
 import { SESSION_REPOSITORY, type SessionRepository } from './session.repository'
-import { SESSION_EVENTS, type SessionEvents } from './session.events'
+import { SESSION_EVENTS, type ListenerRole, type SessionEvents } from './session.events'
 import type { CreateSessionDTO } from './dtos/create-session.dto'
 import type { CreateQuestionDTO } from './dtos/create-question.dto'
 import type { VoteDTO } from './dtos/vote.dto'
@@ -21,11 +21,18 @@ export class SessionService {
   }
 
   getSnapshot(code: string): SessionSnapshot {
-    return toSnapshot(this.requireSession(code))
+    return this.toSnapshot(this.requireSession(code))
   }
 
-  subscribe(code: string, fn: (snapshot: SessionSnapshot) => void) {
-    return this.events.subscribe(this.requireSession(code).code, fn)
+  /** Joins and leaves change the audience count, so both broadcast a snapshot. */
+  subscribe(code: string, fn: (snapshot: SessionSnapshot) => void, role: ListenerRole) {
+    const session = this.requireSession(code)
+    const unsubscribe = this.events.subscribe(session.code, fn, role)
+    this.broadcast(session)
+    return () => {
+      unsubscribe()
+      this.broadcast(session)
+    }
   }
 
   // Presenter-only: callers pass the session the PresenterSession contributor verified.
@@ -79,7 +86,26 @@ export class SessionService {
 
   private changed(session: Session) {
     this.repo.touch(session)
-    this.events.publish(session.code, () => this.repo.find(session.code) && toSnapshot(session))
+    this.broadcast(session)
+  }
+
+  private broadcast(session: Session) {
+    this.events.publish(
+      session.code,
+      () => this.repo.find(session.code) && this.toSnapshot(session),
+    )
+  }
+
+  private toSnapshot(session: Session): SessionSnapshot {
+    const active = session.activeQuestionId
+      ? session.questions.get(session.activeQuestionId)
+      : undefined
+    return {
+      code: session.code,
+      title: session.title,
+      audience: this.events.audienceCount(session.code),
+      question: active ? toQuestionSnapshot(active) : null,
+    }
   }
 }
 
@@ -99,16 +125,5 @@ function toQuestionSnapshot(q: Question): QuestionSnapshot {
     yes,
     no: q.votes.size - yes,
     total: q.votes.size,
-  }
-}
-
-function toSnapshot(session: Session): SessionSnapshot {
-  const active = session.activeQuestionId
-    ? session.questions.get(session.activeQuestionId)
-    : undefined
-  return {
-    code: session.code,
-    title: session.title,
-    question: active ? toQuestionSnapshot(active) : null,
   }
 }

@@ -3,6 +3,7 @@ import { SessionService } from './session.service'
 import { createSessionSchema } from './dtos/create-session.dto'
 import { createQuestionSchema } from './dtos/create-question.dto'
 import { voteSchema } from './dtos/vote.dto'
+import { streamQuerySchema } from './dtos/stream-query.dto'
 import { PresenterSession } from './contributors/presenter-session.contributor'
 import type { SessionSnapshot } from './session.types'
 
@@ -23,13 +24,20 @@ export class SessionController {
     return this.sessions.getSnapshot(ctx.params.code)
   }
 
-  @Get('/:code/stream')
+  @Get('/:code/stream', { query: streamQuerySchema })
   stream(ctx: Ctx<KickRoutes.SessionController['stream']>) {
     // Resolve first so an unknown code is a 404, not an empty stream.
-    const snapshot = this.sessions.getSnapshot(ctx.params.code)
+    this.sessions.getSnapshot(ctx.params.code)
     const sse = ctx.sse<SessionSnapshot>()
-    sse.send(snapshot, 'snapshot')
-    const unsubscribe = this.sessions.subscribe(ctx.params.code, (s) => sse.send(s, 'snapshot'))
+    // Subscribe before the first send so this device is already in the
+    // snapshot's audience count. The presenter screen connects with
+    // ?role=presenter and isn't counted.
+    const unsubscribe = this.sessions.subscribe(
+      ctx.params.code,
+      (s) => sse.send(s, 'snapshot'),
+      ctx.query.role ?? 'audience',
+    )
+    sse.send(this.sessions.getSnapshot(ctx.params.code), 'snapshot')
     const ping = setInterval(() => sse.comment('ping'), PING_INTERVAL_MS)
     sse.onClose(() => {
       clearInterval(ping)

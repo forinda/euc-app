@@ -11,9 +11,11 @@ import { createToken } from '@forinda/kickjs'
 import type { SessionSnapshot } from './session.types'
 
 type Listener = (snapshot: SessionSnapshot) => void
+export type ListenerRole = 'audience' | 'presenter'
 
 export function createSessionEvents({ intervalMs = 250 }: { intervalMs?: number } = {}) {
-  const listeners = new Map<string, Set<Listener>>()
+  // Role per listener, so the presenter's own screens don't count as audience.
+  const listeners = new Map<string, Map<Listener, ListenerRole>>()
   const pending = new Map<string, () => SessionSnapshot | undefined>()
 
   function flush(code: string) {
@@ -21,18 +23,25 @@ export function createSessionEvents({ intervalMs = 250 }: { intervalMs?: number 
     pending.delete(code)
     const snapshot = build?.()
     if (!snapshot) return
-    for (const fn of listeners.get(code) ?? []) fn(snapshot)
+    for (const fn of listeners.get(code)?.keys() ?? []) fn(snapshot)
   }
 
   return {
-    subscribe(code: string, fn: Listener): () => void {
-      let set = listeners.get(code)
-      if (!set) listeners.set(code, (set = new Set()))
-      set.add(fn)
+    subscribe(code: string, fn: Listener, role: ListenerRole): () => void {
+      let map = listeners.get(code)
+      if (!map) listeners.set(code, (map = new Map()))
+      map.set(fn, role)
       return () => {
-        set.delete(fn)
-        if (!set.size) listeners.delete(code)
+        map.delete(fn)
+        if (!map.size) listeners.delete(code)
       }
+    },
+
+    /** Connected audience devices (open streams not marked as presenter). */
+    audienceCount(code: string) {
+      let n = 0
+      for (const role of listeners.get(code)?.values() ?? []) if (role === 'audience') n++
+      return n
     },
 
     /** Schedule a broadcast; `build` runs once at flush time, so it sees the latest state. */

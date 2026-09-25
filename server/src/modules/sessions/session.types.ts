@@ -35,5 +35,7 @@ export interface QuestionSnapshot {
 export interface SessionSnapshot {
   code: string
   title: string | null
+  /** Audience devices connected to the live stream right now. */
+  audience: number
   question: QuestionSnapshot | null
 }

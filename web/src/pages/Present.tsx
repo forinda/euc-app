@@ -2,12 +2,12 @@ import { useEffect, useState, type FormEvent } from 'react'
 import QRCode from 'qrcode'
 import { api } from '../api'
 import { Results } from '../Results'
-import { PRESENTER_KEY_HEADER, describeError, joinUrl, presenterKey } from '../session'
+import { PRESENTER_KEY_HEADER, chunkCode, describeError, joinUrl, presenterKey } from '../session'
 import { useSessionStream } from '../useSessionStream'
 
 export function Present({ code }: { code: string }) {
   const key = presenterKey.get(code)
-  const { snapshot, status } = useSessionStream(code)
+  const { snapshot, status } = useSessionStream(code, 'presenter')
   const [text, setText] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -74,32 +74,48 @@ export function Present({ code }: { code: string }) {
   const toggleProjector = () =>
     document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()
 
+  const audience = snapshot?.audience ?? 0
+  // People who voted then closed the tab still count, so never show "5 of 3".
+  const reach = Math.max(audience, question?.total ?? 0)
+
   return (
-    <main className={projector ? 'page present present--projector' : 'page present'}>
-      <header className="present__header">
-        <div>
-          <h1>{snapshot?.title ?? 'Live Poll'}</h1>
-          <p className="muted">
-            Join at <strong>{url.replace(/^https?:\/\//, '')}</strong>
-          </p>
-        </div>
-        <div className="join-box">
-          {qr && <img src={qr} alt={`QR code to join session ${code}`} className="qr" />}
-          <div>
-            <div className="muted">Code</div>
-            <div className="join-code">{code}</div>
-          </div>
-        </div>
+    <main className={projector ? 'present present--projector' : 'present'}>
+      <header className="join-banner">
+        {qr && <img src={qr} alt={`QR code to join session ${code}`} className="qr" />}
+        <p className="join-banner__step">
+          Scan the
+          <br />
+          QR code
+        </p>
+        <div className="join-banner__divider" aria-hidden="true" />
+        <p className="join-banner__step">
+          Or visit <strong>{location.host}</strong>
+          <br />
+          and enter the code <strong className="join-code">{chunkCode(code)}</strong>
+        </p>
+        <span className={`live-badge${status === 'live' ? ' live-badge--on' : ''}`} title="Audience devices connected">
+          <span className="live-badge__dot" aria-hidden="true" />
+          {status === 'live' ? 'LIVE' : status.toUpperCase()} ({audience})
+        </span>
       </header>
 
       <section className="stage">
+        {snapshot?.title && <p className="stage__title">{snapshot.title}</p>}
         {question ? (
           <>
-            <h2 className="stage__question">{question.text}</h2>
-            <Results question={question} large />
+            <h1 className="stage__question">{question.text}</h1>
+            <Results question={question} />
+            <p className="stage__meta">
+              {reach ? `${question.total} of ${reach} voted` : 'Waiting for votes'}
+              {question.status === 'closed' && ' · voting closed'}
+            </p>
           </>
         ) : (
-          <h2 className="stage__question muted">Publish a question to start voting.</h2>
+          <h1 className="stage__question stage__question--empty">
+            {audience ? `${audience} ${audience === 1 ? 'person has' : 'people have'} joined.` : 'Waiting for people to join…'}
+            <br />
+            <span>Publish a question to start voting.</span>
+          </h1>
         )}
       </section>
 
@@ -123,7 +139,6 @@ export function Present({ code }: { code: string }) {
           <button className="btn" onClick={toggleProjector}>
             {projector ? 'Exit full screen' : 'Full screen'}
           </button>
-          <span className={`status status--${status}`}>{status}</span>
         </div>
         {error && (
           <p role="alert" className="error">
