@@ -20,7 +20,7 @@ function useCode() {
   return (useParams().code ?? '').toUpperCase()
 }
 
-// `key={code}` remounts the page when the code changes, resetting its state and socket.
+// `key={code}` remounts the page when the code changes, resetting its state and live connection.
 function JoinRoute() {
   const code = useCode()
   return <Join key={code} code={code} />

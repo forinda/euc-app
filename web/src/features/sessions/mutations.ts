@@ -12,8 +12,9 @@ export function useCreateSession() {
   })
 }
 
-// Live question changes reach every screen through the socket, so the
-// question mutations below need no invalidation of the session detail.
+// Live question changes reach every screen through useSessionLive (Ably, or
+// polling when it's off), so the question mutations below need no
+// invalidation of the session detail.
 
 export function usePublishQuestion(code: string) {
   return useMutation({

@@ -1,6 +1,8 @@
 import { KickClientError } from '@forinda/kickjs-client'
 
-export const isNotFound = (err: unknown) => err instanceof KickClientError && err.status === 404
+export const hasStatus = (err: unknown, status: number) => err instanceof KickClientError && err.status === status
+
+export const isNotFound = (err: unknown) => hasStatus(err, 404)
 
 /** Human-readable message from a typed-client error (RFC 9457 problem details when present). */
 export function describeError(err: unknown) {

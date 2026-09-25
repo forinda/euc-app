@@ -3,6 +3,7 @@ import { SessionService } from './session.service'
 import { createSessionSchema } from './dtos/create-session.dto'
 import { createQuestionSchema } from './dtos/create-question.dto'
 import { voteSchema } from './dtos/vote.dto'
+import { realtimeTokenQuerySchema } from './dtos/realtime-token.dto'
 import { PresenterSession } from './contributors/presenter-session.contributor'
 
 @Controller()
@@ -17,6 +18,12 @@ export class SessionController {
   @Get('/:code')
   async get(ctx: Ctx<KickRoutes.SessionController['get']>) {
     return this.sessions.getSnapshot(ctx.params.code)
+  }
+
+  /** A grant to follow the session live (Ably). 503 means "poll instead". */
+  @Get('/:code/realtime-token', { query: realtimeTokenQuerySchema })
+  async realtimeToken(ctx: Ctx<KickRoutes.SessionController['realtimeToken']>) {
+    return this.sessions.realtimeToken(ctx.params.code, ctx.query.role, ctx.query.deviceId)
   }
 
   @PresenterSession

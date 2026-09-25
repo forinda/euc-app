@@ -60,7 +60,6 @@ describe('SessionController', () => {
       code,
       title: 'Keynote',
       version: 0,
-      audience: 0,
       question: null,
     })
   })
@@ -129,6 +128,17 @@ describe('SessionController', () => {
       .set('x-presenter-key', presenterKey)
       .send({ text: 'Hi' })
     expect(unknown.status).toBe(404)
+  })
+
+  it('realtime token: 503 without Ably (clients poll), 404 for unknown sessions', async () => {
+    const { code } = await startSession()
+    const deviceId = randomUUID()
+    const off = await http.get(`${BASE}/${code}/realtime-token`).query({ deviceId })
+    expect(off.status).toBe(503)
+    const unknown = await http.get(`${BASE}/ZZZZZZ/realtime-token`).query({ deviceId })
+    expect(unknown.status).toBe(404)
+    const bad = await http.get(`${BASE}/${code}/realtime-token`).query({ deviceId: 'nope' })
+    expect(bad.status).toBe(422)
   })
 
   it('validates input', async () => {

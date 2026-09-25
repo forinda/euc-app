@@ -9,8 +9,6 @@ export default defineConfig({
     // the relative '/api/v1', so the browser hits Vite and Vite forwards.
     proxy: {
       '/api': 'http://localhost:3000',
-      // Socket.IO (live session updates) — `ws: true` forwards the WebSocket upgrade.
-      '/socket.io': { target: 'http://localhost:3000', ws: true },
     },
   },
 })

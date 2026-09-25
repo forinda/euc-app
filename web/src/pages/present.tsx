@@ -15,7 +15,7 @@ import {
 } from '../features/sessions/mutations'
 import { sessionQueries } from '../features/sessions/queries'
 import { chunkCode, joinUrl } from '../features/sessions/types'
-import { useSessionSocket } from '../features/sessions/use-session-socket'
+import { useSessionLive } from '../features/sessions/use-session-live'
 import { describeError, isNotFound } from '../lib/errors'
 import { presenterKeyStore } from '../lib/storage'
 
@@ -33,7 +33,7 @@ function Message({ title, body, link }: { title: string; body: string; link: { t
 
 export function Present({ code }: { code: string }) {
   const isPresenter = !!presenterKeyStore.get(code)
-  const status = useSessionSocket(code, 'presenter')
+  const { status, audienceCount } = useSessionLive(code, 'presenter')
   const session = useQuery(sessionQueries.detail(code))
   const drafts = useQuery(sessionQueries.drafts(code))
 
@@ -82,10 +82,12 @@ export function Present({ code }: { code: string }) {
 
   const snapshot = session.data
   const question = snapshot?.question ?? null
-  const audience = snapshot?.audience ?? 0
+  // Audience from Ably presence; null when polling (no presence to count).
+  const audience = audienceCount
   // People who voted then closed the tab still count, so never show "5 of 3".
-  const reach = Math.max(audience, question?.total ?? 0)
+  const reach = audience === null ? null : Math.max(audience, question?.total ?? 0)
   const live = status === 'live'
+  const badge = live ? `LIVE (${audience ?? 0})` : status === 'polling' ? 'POLLING' : status.toUpperCase()
 
   const clearOnSuccess = { onSuccess: () => setText('') }
   const publishNow = (e: FormEvent) => {
@@ -121,7 +123,7 @@ export function Present({ code }: { code: string }) {
           <strong className="text-[1.35em] tracking-wider text-zinc-100 tabular-nums">{chunkCode(code)}</strong>
         </p>
         <span
-          title="Audience devices connected"
+          title={live ? 'Audience devices connected' : 'Live updates off: screens refresh every 2 s'}
           className={`ml-auto inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-bold tracking-wide ${
             live ? 'border-red-900 bg-red-950/60 text-red-400' : 'border-zinc-800 text-zinc-400'
           }`}
@@ -130,7 +132,7 @@ export function Present({ code }: { code: string }) {
             aria-hidden="true"
             className={`size-2 rounded-full ${live ? 'bg-red-400 motion-safe:animate-pulse' : 'bg-zinc-500'}`}
           />
-          {live ? 'LIVE' : status.toUpperCase()} ({audience})
+          {badge}
         </span>
       </header>
 
@@ -144,7 +146,11 @@ export function Present({ code }: { code: string }) {
             </h1>
             <Results question={question} />
             <p className="mt-5 text-[clamp(1rem,2vw,1.5rem)] text-zinc-400 tabular-nums">
-              {reach ? `${question.total} of ${reach} voted` : 'Waiting for votes'}
+              {reach
+                ? `${question.total} of ${reach} voted`
+                : question.total
+                  ? `${question.total} ${question.total === 1 ? 'vote' : 'votes'}`
+                  : 'Waiting for votes'}
               {question.status === 'closed' && ' · voting closed'}
             </p>
           </>
@@ -152,7 +158,9 @@ export function Present({ code }: { code: string }) {
           <h1 className="text-[clamp(2rem,5vw,4.2rem)] leading-tight font-bold text-zinc-400">
             {audience
               ? `${audience} ${audience === 1 ? 'person has' : 'people have'} joined.`
-              : 'Waiting for people to join…'}
+              : audience === 0
+                ? 'Waiting for people to join…'
+                : 'Ready when you are.'}
             <br />
             <span className="text-[0.5em] font-medium">Publish a question to start voting.</span>
           </h1>

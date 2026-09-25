@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { Service, Inject, HttpException } from '@forinda/kickjs'
 import { MAX_DRAFTS } from './session.code'
 import { SESSION_REPOSITORY, type SessionRepository } from './session.repository'
-import { SESSION_EVENTS, type ListenerRole, type SessionEvents } from './session.events'
+import { SESSION_REALTIME, type RealtimeRole, type SessionRealtime } from './session.realtime'
 import type { CreateSessionDTO } from './dtos/create-session.dto'
 import type { CreateQuestionDTO } from './dtos/create-question.dto'
 import type { VoteDTO } from './dtos/vote.dto'
@@ -14,9 +14,6 @@ import type {
   StoredSession,
 } from './session.types'
 
-// TODO(ably step): drop `audience` — the count moves to Ably presence.
-type LiveSnapshot = SessionSnapshot & { audience: number }
-
 /** Codes are case-insensitive on the way in; stored upper-case. */
 const normalize = (code: string) => code.trim().toUpperCase()
 
@@ -24,7 +21,7 @@ const normalize = (code: string) => code.trim().toUpperCase()
 export class SessionService {
   constructor(
     @Inject(SESSION_REPOSITORY) private readonly repo: SessionRepository,
-    @Inject(SESSION_EVENTS) private readonly events: SessionEvents,
+    @Inject(SESSION_REALTIME) private readonly realtime: SessionRealtime,
   ) {}
 
   async create(dto: CreateSessionDTO) {
@@ -33,10 +30,10 @@ export class SessionService {
     return { code: session.code, title: session.title, presenterKey: session.presenterKey }
   }
 
-  async getSnapshot(code: string): Promise<LiveSnapshot> {
+  async getSnapshot(code: string): Promise<SessionSnapshot> {
     const snapshot = await this.repo.snapshot(normalize(code))
     if (!snapshot) throw HttpException.notFound(`Session ${code} not found`)
-    return this.live(snapshot)
+    return snapshot
   }
 
   /** The session for `code` (case-insensitive), or 404. */
@@ -46,18 +43,14 @@ export class SessionService {
     return session
   }
 
-  /** A live socket joined: count it, tell the room, and return its first snapshot. */
-  async connect(code: string, socketId: string, role: ListenerRole): Promise<LiveSnapshot> {
-    const snapshot = await this.getSnapshot(code)
-    this.events.join(snapshot.code, socketId, role)
-    this.broadcast(snapshot)
-    return this.live(snapshot)
-  }
-
-  async disconnect(code: string, socketId: string) {
-    this.events.leave(code, socketId)
-    const snapshot = await this.repo.snapshot(code)
-    if (snapshot) this.broadcast(snapshot)
+  /**
+   * A signed grant for one browser to follow the session live. 503 when no
+   * realtime service is configured, which tells the client to poll instead.
+   */
+  async realtimeToken(code: string, role: RealtimeRole, deviceId: string) {
+    const session = await this.requireSession(code)
+    if (!this.realtime.enabled) throw new HttpException(503, 'Live updates are not configured')
+    return this.realtime.createTokenRequest(session.code, role, deviceId)
   }
 
   // Presenter-only below: callers pass the session the PresenterSession
@@ -97,23 +90,16 @@ export class SessionService {
   async vote(code: string, questionId: string, dto: VoteDTO) {
     const result = await this.repo.vote(normalize(code), questionId, dto.voterId, dto.choice)
     if (result === 'closed') throw HttpException.conflict('Voting on this question is closed')
-    const { yes, no, total } = this.applied(result, 'Question')
+    const { yes, no, total } = await this.applied(result, 'Question')
     return { choice: dto.choice, yes, no, total }
   }
 
   /** Publish a change to everyone watching, or turn a miss into a 404. */
-  private applied(result: Change | 'not-found', missing: string): QuestionSnapshot {
+  private async applied(result: Change | 'not-found', missing: string): Promise<QuestionSnapshot> {
     if (result === 'not-found') throw HttpException.notFound(`${missing} not found`)
-    this.broadcast(result.snapshot)
+    // Awaited so a serverless function doesn't return (and freeze) mid-publish.
+    // Never throws: delivery is best-effort (see session.realtime.ts).
+    await this.realtime.publish(result.snapshot)
     return result.question
-  }
-
-  private broadcast(snapshot: SessionSnapshot) {
-    // Built at flush time so the audience count is current.
-    this.events.publish(snapshot.code, () => this.live(snapshot))
-  }
-
-  private live(snapshot: SessionSnapshot): LiveSnapshot {
-    return { ...snapshot, audience: this.events.audienceCount(snapshot.code) }
   }
 }

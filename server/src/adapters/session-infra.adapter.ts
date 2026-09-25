@@ -6,6 +6,8 @@
  *   UPSTASH_REDIS_REST_TOKEN (or Vercel's KV_REST_API_URL + KV_REST_API_TOKEN)
  *   are set. Otherwise in-memory, which is correct only for one long-running
  *   process (local dev, tests, a single Docker container).
+ * - Realtime (SESSION_REALTIME): Ably when ABLY_API_KEY is set. Otherwise
+ *   disabled, and clients poll the snapshot instead.
  *
  * The sessions module only depends on the tokens, so swapping an
  * implementation happens here and nowhere else. Factories read env lazily
@@ -16,6 +18,12 @@ import { Redis } from '@upstash/redis'
 import { SESSION_REPOSITORY, type SessionRepository } from '@/modules/sessions/session.repository'
 import { createMemorySessionRepository } from '@/modules/sessions/session.repository.memory'
 import { createRedisSessionRepository } from '@/modules/sessions/session.repository.redis'
+import {
+  disabledRealtime,
+  SESSION_REALTIME,
+  type SessionRealtime,
+} from '@/modules/sessions/session.realtime'
+import { createAblyRealtime } from '@/modules/sessions/session.realtime.ably'
 
 const log = Logger.for('SessionInfraAdapter')
 
@@ -39,6 +47,7 @@ export const SessionInfraAdapter = defineAdapter({
   build: () => {
     let repository: SessionRepository | null = null
     let redis: Redis | null = null
+    let realtime: SessionRealtime | null = null
 
     function createRepository(): SessionRepository {
       const credentials = redisCredentials()
@@ -52,11 +61,22 @@ export const SessionInfraAdapter = defineAdapter({
       return createMemorySessionRepository()
     }
 
+    function createRealtime(): SessionRealtime {
+      const apiKey = getEnv('ABLY_API_KEY')
+      if (apiKey) {
+        log.info('Realtime: Ably')
+        return createAblyRealtime(apiKey)
+      }
+      log.info('Realtime: off (ABLY_API_KEY not set); clients will poll')
+      return disabledRealtime
+    }
+
     return {
       // Runs during setup(), so it covers `kick dev`, createHandler (Vercel)
       // and createTestApp alike.
       beforeStart(ctx: AdapterContext): void {
         ctx.container.registerFactory(SESSION_REPOSITORY, () => (repository ??= createRepository()))
+        ctx.container.registerFactory(SESSION_REALTIME, () => (realtime ??= createRealtime()))
       },
 
       /** Readiness: Redis must answer. Untouched or in-memory counts as up. */

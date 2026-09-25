@@ -5,7 +5,7 @@ import { TextLink } from '../components/text-link'
 import { useVote } from '../features/sessions/mutations'
 import { sessionQueries } from '../features/sessions/queries'
 import { percent, type Choice } from '../features/sessions/types'
-import { useSessionSocket } from '../features/sessions/use-session-socket'
+import { useSessionLive } from '../features/sessions/use-session-live'
 import { describeError, isNotFound } from '../lib/errors'
 import { myVoteStore } from '../lib/storage'
 
@@ -25,7 +25,7 @@ const TONE: Record<Choice, { label: string; button: string; fill: string; ring: 
 }
 
 export function Join({ code }: { code: string }) {
-  const status = useSessionSocket(code)
+  const { status } = useSessionLive(code)
   const session = useQuery(sessionQueries.detail(code))
   const vote = useVote(code)
   const question = session.data?.question ?? null
@@ -75,7 +75,8 @@ export function Join({ code }: { code: string }) {
         <span>
           {session.data?.title ? `${session.data.title} · ` : ''}Session {code}
         </span>
-        {status !== 'live' && (
+        {/* Polling is normal operation when live updates are off; only flag trouble. */}
+        {(status === 'connecting' || status === 'reconnecting') && (
           <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs dark:bg-zinc-800">{status}</span>
         )}
       </p>

@@ -33,6 +33,8 @@ const envSchema = fromZod(
     UPSTASH_REDIS_REST_TOKEN: z.string().min(1).optional(),
     KV_REST_API_URL: z.url().optional(),
     KV_REST_API_TOKEN: z.string().min(1).optional(),
+    // Live updates via Ably when set; otherwise clients poll every 2 s.
+    ABLY_API_KEY: z.string().min(1).optional(),
     // DATABASE_URL: z.string().url(),
   }),
 )
