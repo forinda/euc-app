@@ -6,6 +6,7 @@ import { createTestApp } from '@forinda/kickjs-testing'
 // Side-effect import — registers the env schema, exactly as src/index.ts does.
 import '@/config'
 import { SessionModule } from './session.module'
+import { SessionInfraAdapter } from '@/adapters/session-infra.adapter'
 
 const BASE = '/api/v1/sessions'
 
@@ -18,7 +19,11 @@ describe('SessionController', () => {
     // each test a fresh in-memory store. Don't use `isolated: true` here: the
     // Application it builds still serves requests from the global container,
     // so state leaks between tests (kickjs-testing 8.x).
-    const { app } = await createTestApp({ modules: [SessionModule()] })
+    const { app } = await createTestApp({
+      modules: [SessionModule()],
+      // No store env under test, so this binds the in-memory store.
+      adapters: [SessionInfraAdapter()],
+    })
     server = createServer(app.handle.bind(app))
     await new Promise<void>((resolve) => server.listen(0, resolve))
     http = request(server)
@@ -51,7 +56,7 @@ describe('SessionController', () => {
     expect(presenterKey).toBeTruthy()
 
     const snapshot = await http.get(`${BASE}/${code.toLowerCase()}`)
-    expect(snapshot.body).toEqual({ code, title: 'Keynote', audience: 0, question: null })
+    expect(snapshot.body).toEqual({ code, title: 'Keynote', version: 0, audience: 0, question: null })
   })
 
   it('counts one vote per device, lets it change, and freezes on close', async () => {

@@ -7,7 +7,6 @@
  */
 import { defineModule } from '@forinda/kickjs'
 import { SOCKET_IO } from '@forinda/kickjs-ws/socket.io'
-import { SESSION_REPOSITORY, createSessionRepository } from './session.repository'
 import { SESSION_EVENTS, SESSIONS_NAMESPACE, createSessionEvents } from './session.events'
 import { SessionController } from './session.controller'
 
@@ -18,7 +17,8 @@ export const SessionModule = defineModule({
   name: 'SessionModule',
   build: () => ({
     register(container) {
-      container.registerFactory(SESSION_REPOSITORY, () => createSessionRepository())
+      // The store (SESSION_REPOSITORY) is bound by SessionInfraAdapter, which
+      // picks an implementation from env. See src/adapters/session-infra.adapter.ts.
       container.registerFactory(SESSION_EVENTS, () =>
         createSessionEvents({
           // Resolved per emit: SocketIoAdapter registers SOCKET_IO at startup,

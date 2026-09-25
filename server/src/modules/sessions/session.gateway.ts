@@ -30,7 +30,11 @@ export class SessionGateway {
     let snapshot
     try {
       // Joins presence first, so this socket is already in the snapshot's audience count.
-      snapshot = this.sessions.connect(code, ctx.id, parsed.success ? parsed.data.role : 'audience')
+      snapshot = await this.sessions.connect(
+        code,
+        ctx.id,
+        parsed.success ? parsed.data.role : 'audience',
+      )
     } catch {
       ctx.send('not-found', { code })
       ctx.socket.disconnect(true)
@@ -43,8 +47,8 @@ export class SessionGateway {
   }
 
   @OnDisconnect()
-  disconnect(ctx: SocketIoContext) {
+  async disconnect(ctx: SocketIoContext) {
     const code = ctx.get<string>('code')
-    if (code) this.sessions.disconnect(code, ctx.id)
+    if (code) await this.sessions.disconnect(code, ctx.id)
   }
 }

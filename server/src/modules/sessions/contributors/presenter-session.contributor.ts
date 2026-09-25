@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto'
 import { defineHttpContextDecorator, HttpException } from '@forinda/kickjs'
 import { SessionService } from '../session.service'
-import type { Session } from '../session.types'
+import type { StoredSession } from '../session.types'
 
 /** Header the presenter screen sends on speaker-only routes. */
 export const PRESENTER_KEY_HEADER = 'x-presenter-key'
@@ -9,7 +9,7 @@ export const PRESENTER_KEY_HEADER = 'x-presenter-key'
 declare module '@forinda/kickjs' {
   interface ContextMeta {
     /** The `:code` session, verified against the request's presenter key. */
-    presenterSession: Session
+    presenterSession: StoredSession
   }
 }
 
@@ -29,8 +29,8 @@ declare module '@forinda/kickjs' {
 export const PresenterSession = defineHttpContextDecorator({
   key: 'presenterSession',
   deps: { sessions: SessionService },
-  resolve: (ctx, { sessions }) => {
-    const session = sessions.requireSession(String(ctx.params.code ?? ''))
+  resolve: async (ctx, { sessions }) => {
+    const session = await sessions.requireSession(String(ctx.params.code ?? ''))
 
     const header = ctx.headers[PRESENTER_KEY_HEADER]
     const given = Buffer.from(typeof header === 'string' ? header : '')

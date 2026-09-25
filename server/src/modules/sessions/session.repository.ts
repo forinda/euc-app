@@ -1,71 +1,41 @@
 /**
- * Session repository — in-memory, so sessions vanish on restart (plan D8).
+ * Session storage, behind our own interface.
  *
- * Expiry is lazy: an idle session is dropped when next read, and every create
- * sweeps the rest. No timers, so nothing keeps the process or a test alive.
+ * Two implementations: in-memory (session.repository.memory.ts), for local dev
+ * and tests, and Upstash Redis, for Vercel, where each function instance has
+ * its own memory. `SessionInfraAdapter` (src/adapters) picks one from env and
+ * binds it to SESSION_REPOSITORY. Nothing else knows which store is running.
+ *
+ * Every change to public state returns a `Change`: the affected question and
+ * the resulting snapshot. The service can publish that without reading the
+ * store again.
  */
-import { randomInt } from 'node:crypto'
 import { createToken } from '@forinda/kickjs'
-import type { Session } from './session.types'
+import type { Change, Choice, Draft, SessionSnapshot, StoredSession } from './session.types'
 
-// No I/L/O/0/1 — codes are read off a projector and typed on phones.
-const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'
-const CODE_LENGTH = 6
+export interface SessionRepository {
+  create(init: { title: string | null; presenterKey: string }): Promise<StoredSession>
+  find(code: string): Promise<StoredSession | null>
+  snapshot(code: string): Promise<SessionSnapshot | null>
 
-export interface SessionRepositoryOptions {
-  ttlMs?: number
-  now?: () => number
+  /** Closes the active question (if any) and opens a new one. */
+  publishQuestion(code: string, text: string): Promise<Change | 'not-found'>
+  closeQuestion(code: string, questionId: string): Promise<Change | 'not-found'>
+  /** One vote per voter; voting again replaces the earlier choice. */
+  vote(
+    code: string,
+    questionId: string,
+    voterId: string,
+    choice: Choice,
+  ): Promise<Change | 'not-found' | 'closed'>
+
+  /** Prepared questions, oldest first. Presenter-only; never in the snapshot. */
+  listDrafts(code: string): Promise<Draft[]>
+  addDraft(code: string, text: string): Promise<Draft | 'not-found' | 'limit'>
+  /** Returns whether the draft existed. */
+  deleteDraft(code: string, draftId: string): Promise<boolean>
+  /** Publishes a prepared question and removes it from the list, in one step. */
+  publishDraft(code: string, draftId: string): Promise<Change | 'not-found'>
 }
-
-export function createSessionRepository({
-  ttlMs = 12 * 60 * 60 * 1000,
-  now = Date.now,
-}: SessionRepositoryOptions = {}) {
-  const store = new Map<string, Session>()
-  const isExpired = (s: Session) => now() - s.lastActivityAt > ttlMs
-
-  function newCode() {
-    let code: string
-    do {
-      code = Array.from(
-        { length: CODE_LENGTH },
-        () => CODE_ALPHABET[randomInt(CODE_ALPHABET.length)],
-      ).join('')
-    } while (store.has(code))
-    return code
-  }
-
-  return {
-    create(init: Pick<Session, 'title' | 'presenterKey'>): Session {
-      for (const [code, s] of store) if (isExpired(s)) store.delete(code)
-      const session: Session = {
-        ...init,
-        code: newCode(),
-        questions: new Map(),
-        drafts: new Map(),
-        activeQuestionId: null,
-        createdAt: new Date(now()).toISOString(),
-        lastActivityAt: now(),
-      }
-      store.set(session.code, session)
-      return session
-    },
-
-    find(code: string): Session | undefined {
-      const session = store.get(code)
-      if (session && isExpired(session)) {
-        store.delete(code)
-        return undefined
-      }
-      return session
-    },
-
-    touch(session: Session) {
-      session.lastActivityAt = now()
-    },
-  }
-}
-
-export type SessionRepository = ReturnType<typeof createSessionRepository>
 
 export const SESSION_REPOSITORY = createToken<SessionRepository>('app/Session/repository')

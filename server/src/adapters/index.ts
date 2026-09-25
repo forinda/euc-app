@@ -1,8 +1,11 @@
 import { SpaAdapter } from '@forinda/kickjs/spa'
 import { SocketIoAdapter } from '@forinda/kickjs-ws/socket.io'
+import { SessionInfraAdapter } from './session-infra.adapter'
 import { env } from '../config'
 
 export const adapters = [
+  // Picks the session store (and, later, realtime) implementation from env.
+  SessionInfraAdapter(),
   // Live session updates (src/modules/sessions/session.gateway.ts). The web
   // app reaches it on its own origin — through the Vite proxy in dev, served
   // by this process in production — so no CORS config is needed.
