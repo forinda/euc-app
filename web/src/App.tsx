@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { api } from './api'
-import { Tasks } from './Tasks'
 
 // The response types below are INFERRED from the server's handlers —
 // change server/src/modules/hello/hello.service.ts and these types follow on
@@ -34,7 +33,11 @@ export function App() {
         Server said hello at <code>{greeting?.timestamp ?? '…'}</code> — health:{' '}
         <code>{health}</code>
       </p>
-      <Tasks />
+      <p style={{ color: '#666' }}>
+        This call is typed end to end: <code>api.get('/hello')</code> returns the exact shape
+        <code> HelloService.greet()</code> produces. Rename a field on the server and this file
+        stops compiling.
+      </p>
     </main>
   )
 }
