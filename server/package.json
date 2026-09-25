@@ -6,9 +6,7 @@
     "dev": "kick dev",
     "build": "kick build",
     "start": "kick start",
-    "test": "vitest run",
-    "build:netlify": "kick build && kick build:netlify",
-    "build:vercel": "kick build && kick build:vercel"
+    "test": "vitest run"
   },
   "dependencies": {
     "@forinda/kickjs": "^8.6.0",

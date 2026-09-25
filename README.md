@@ -14,7 +14,41 @@ pnpm install
 pnpm dev            # server (kick dev) + web (vite), in parallel
 ```
 
-Server: http://localhost:3000 · Web: http://localhost:5173 (Vite proxies `/api`).
+Server: http://localhost:3000 · Web: http://localhost:5173 (Vite proxies `/api` and `/socket.io`).
+
+To vote from phones on the same Wi-Fi during development, start the web app
+with `pnpm --filter ./web dev --host` and open the printed Network address.
+
+## Deploy
+
+The app is **one long-running Node process**: the KickJS API, Socket.IO for
+live updates, and the built React app (served by `SpaAdapter`). It needs an
+always-on host (Render, Fly.io, Railway, a VPS). Serverless functions
+(Netlify/Vercel) can't run it: they don't support Socket.IO, and sessions
+live in memory ([kickjs.app/guide/serverless](https://kickjs.app/guide/serverless.html)).
+
+```bash
+docker build -t euc-app .
+docker run -p 3000:3000 euc-app      # http://localhost:3000
+```
+
+Or without Docker: `pnpm install && pnpm build && CLIENT_DIR=$PWD/web/dist pnpm start`.
+
+| Env | Default | Notes |
+| --- | --- | --- |
+| `PORT` | `3000` | Most hosts set this for you. |
+| `NODE_ENV` | `development` | `production` in the image. |
+| `CLIENT_DIR` | `../web/dist` | Built web app. Relative paths resolve from the working directory, so use an absolute path in production (the image uses `/app/web`). |
+| `LOG_LEVEL` | `info` | |
+
+Health check: `GET /api/v1/hello/health` (wired as the image's `HEALTHCHECK`).
+
+**Run one instance.** Sessions and votes are in memory, so a restart ends
+live sessions and a second instance wouldn't see the first one's rooms.
+Scaling out needs a shared store (e.g. Redis) plus the Socket.IO Redis adapter.
+If the host puts a proxy in front, it must allow WebSocket upgrades on
+`/socket.io` (the client uses WebSocket transport only, so no sticky sessions
+are needed).
 
 ## The type loop
 
